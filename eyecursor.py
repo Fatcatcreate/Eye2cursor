@@ -365,8 +365,6 @@ class EyeTrackingInterface:
             collected = 0
 
 
-            
-            
             start_time = time.time()
             timeout = 3  # seconds
             

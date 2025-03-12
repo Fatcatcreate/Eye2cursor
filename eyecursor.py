@@ -243,6 +243,8 @@ class EyeTrackingInterface:
                     continue
                 
                 result = self.extract_eye_features(frame)
+                if result is None:
+                    print("Failed to extract eye features")
                 if result is not None:
                     flat_features, eye_images, _ = result
                     

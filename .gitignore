@@ -1,3 +1,5 @@
 eye_tracking_data/
 eye_tracking_data/
 *.pkl
+eye_tracker_model_x.pkl
+eye_tracker_model_y.pkl

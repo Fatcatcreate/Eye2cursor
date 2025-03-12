@@ -479,7 +479,6 @@ class EyeTrackingInterface:
             # Second convolutional layer
             Conv2D(64, (3, 3), activation='relu'),
             MaxPooling2D((2, 2)),
-            
             # Flatten the output for the dense layers
             Flatten(),
             
@@ -534,14 +533,36 @@ class EyeTrackingInterface:
         self.gaze_model = model
         
         return True
-
+    """
     def load_model(self, model_path=None):
-        """Load pre-trained gaze prediction model"""
+        print("Loading model...")
         if model_path is None:
             model_path = os.path.join("eye_tracking_data", "gaze_model.h5")
         
         try:
             self.gaze_model = load_model(model_path)
+            print(f"Loaded model from {model_path}")
+            return True
+        except Exception as e:
+            print(f"Error loading model: {e}")
+            return False
+    """
+
+    def load_model(self, model_path=None):
+        """Load pre-trained gaze prediction model"""
+        print("Loading model...")
+        if model_path is None:
+            model_path = os.path.join("eye_tracking_data", "gaze_model.h5")
+        
+        try:
+            # Define custom objects dictionary with the metrics used during training
+            custom_objects = {
+                'mse': tf.keras.losses.MeanSquaredError(),
+                'mae': tf.keras.metrics.MeanAbsoluteError()
+            }
+            
+            # Use tf.keras.models.load_model with custom_objects
+            self.gaze_model = tf.keras.models.load_model(model_path, custom_objects=custom_objects)
             print(f"Loaded model from {model_path}")
             return True
         except Exception as e:
@@ -858,8 +879,11 @@ class EyeTrackingInterface:
                 self.perform_data_augmentation()
             elif choice == '6':
                 if self.gaze_model is None:
-                    print("No model loaded. Please train or load a model first.")
-                    continue
+                    print("No model loaded. Attempting to load model...")
+                    if not self.load_model():
+                        print("Failed to load model. Please train or load a model first.")
+                        continue
+                self.start_control
                 self.start_control()
             elif choice.lower() == 'q':
                 break

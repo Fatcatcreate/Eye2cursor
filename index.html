@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fourier Drawing Tracer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 8px 16px;
+            background-color: #4285f4;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background-color: #3367d6;
+        }
+        .canvas-container {
+            position: relative;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        canvas {
+            display: block;
+            background-color: white;
+        }
+        .slider-container {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="range"] {
+            width: 100%;
+        }
+        .value-display {
+            text-align: center;
+            font-size: 14px;
+            color: #666;
+        }
+        .file-input {
+            display: none;
+        }
+        .tabs {
+            display: flex;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #ddd;
+        }
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            background-color: #f5f5f5;
+            border: 1px solid #ddd;
+            border-bottom: none;
+            border-radius: 4px 4px 0 0;
+            margin-right: 5px;
+        }
+        .tab.active {
+            background-color: white;
+            border-bottom: 1px solid white;
+            margin-bottom: -1px;
+            font-weight: bold;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Fourier Drawing </h1>
+        
+        <div class="tabs">
+            <div class="tab active" data-tab="draw">Draw Mode</div>
+            <div class="tab" data-tab="trace">Trace Mode</div>
+        </div>
+        
+        <div class="tab-content active" data-tab="draw">
+            <div class="controls">
+                <button id="clear-btn">Clear Drawing</button>
+                <button id="process-btn">Process Drawing</button>
+                <button id="upload-svg-btn">Upload SVG</button>
+                <input type="file" id="svg-input" class="file-input" accept=".svg">
+            </div>
+            
+            <div class="canvas-container">
+                <canvas id="drawing-canvas" width="800" height="500"></canvas>
+            </div>
+        </div>
+        
+        <div class="tab-content" data-tab="trace">
+            <div class="controls">
+                <button id="back-btn">Back to Drawing</button>
+                <button id="play-pause-btn">Pause</button>
+                <button id="reset-btn">Reset</button>
+            </div>
+            
+            <div class="slider-container">
+                <label for="num-circles">Number of Circles: <span id="num-circles-value">100</span></label>
+                <input type="range" id="num-circles" min="1" max="1000" value="100">
+            </div>
+            
+            <div class="slider-container">
+                <label for="animation-speed">Animation Speed (decimal values draw hexagons or other shapes like a spirograph, looks cool): <span id="animation-speed-value">1.0×</span></label>
+                <input type="range" id="animation-speed" min="0.1" max="3" step="0.1" value="1">
+            </div>
+            
+            <div class="canvas-container">
+                <canvas id="trace-canvas" width="800" height="500"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const drawingCanvas = document.getElementById('drawing-canvas');
+        const traceCanvas = document.getElementById('trace-canvas');
+        const drawingCtx = drawingCanvas.getContext('2d');
+        const traceCtx = traceCanvas.getContext('2d');
+        const clearBtn = document.getElementById('clear-btn');
+        const processBtn = document.getElementById('process-btn');
+        const uploadSvgBtn = document.getElementById('upload-svg-btn');
+        const svgInput = document.getElementById('svg-input');
+        const backBtn = document.getElementById('back-btn');
+        const playPauseBtn = document.getElementById('play-pause-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const numCirclesSlider = document.getElementById('num-circles');
+        const numCirclesValue = document.getElementById('num-circles-value');
+        const animationSpeedSlider = document.getElementById('animation-speed');
+        const animationSpeedValue = document.getElementById('animation-speed-value');
+        const tabs = document.querySelectorAll('.tab');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+        const showOriginalToggle = document.createElement('div');
+        showOriginalToggle.innerHTML = `
+        <label class="toggle">
+            <input type="checkbox" id="show-original">
+            <span class="slider"></span>
+            <span class="label">Show Original</span>
+        </label>
+        `;
+        document.querySelector('.controls').appendChild(showOriginalToggle);
+        const showOriginalCheckbox = document.getElementById('show-original');
+
+        let isDrawing = false;
+        let pathPoints = [];
+        let currentPath = [];
+        let resampledPoints = []; 
+        
+        let animationId = null;
+        let time = 0;
+        let isPlaying = true;
+        let tracePath = [];
+        let epicycles = [];
+        
+        let fourierX = [];
+        let fourierY = [];
+        
+        function initDrawingCanvas() {
+            drawingCtx.lineWidth = 2;
+            drawingCtx.strokeStyle = '#000';
+            drawingCtx.lineCap = 'round';
+            drawingCtx.lineJoin = 'round';
+            
+            drawingCtx.fillStyle = '#fff';
+            drawingCtx.fillRect(0, 0, drawingCanvas.width, drawingCanvas.height);
+        }
+        
+        function initTraceCanvas() {
+            traceCtx.lineWidth = 2;
+            traceCtx.strokeStyle = '#000';
+            traceCtx.lineCap = 'round';
+            traceCtx.lineJoin = 'round';
+            
+            traceCtx.fillStyle = '#fff';
+            traceCtx.fillRect(0, 0, traceCanvas.width, traceCanvas.height);
+        }
+        
+        drawingCanvas.addEventListener('mousedown', startDrawing);
+        drawingCanvas.addEventListener('mousemove', draw);
+        drawingCanvas.addEventListener('mouseup', stopDrawing);
+        drawingCanvas.addEventListener('mouseout', stopDrawing);
+        
+        drawingCanvas.addEventListener('touchstart', handleTouchStart);
+        drawingCanvas.addEventListener('touchmove', handleTouchMove);
+        drawingCanvas.addEventListener('touchend', handleTouchEnd);
+        
+        function handleTouchStart(e) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const mouseEvent = new MouseEvent('mousedown', {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            });
+            drawingCanvas.dispatchEvent(mouseEvent);
+        }
+        
+        function handleTouchMove(e) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const mouseEvent = new MouseEvent('mousemove', {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            });
+            drawingCanvas.dispatchEvent(mouseEvent);
+        }
+        
+        function handleTouchEnd(e) {
+            e.preventDefault();
+            const mouseEvent = new MouseEvent('mouseup');
+            drawingCanvas.dispatchEvent(mouseEvent);
+        }
+        
+        function startDrawing(e) {
+            isDrawing = true;
+            const rect = drawingCanvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            drawingCtx.beginPath();
+            drawingCtx.moveTo(x, y);
+            
+            currentPath = [{x, y}];
+        }
+        
+        function draw(e) {
+            if (!isDrawing) return;
+            
+            const rect = drawingCanvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            drawingCtx.lineTo(x, y);
+            drawingCtx.stroke();
+            
+            currentPath.push({x, y});
+        }
+        
+        function stopDrawing() {
+            if (!isDrawing) return;
+            
+            isDrawing = false;
+            drawingCtx.closePath();
+            
+            if (currentPath.length > 1) {
+                pathPoints = [...pathPoints, ...currentPath];
+            }
+            
+            currentPath = [];
+        }
+        
+        clearBtn.addEventListener('click', () => {
+            pathPoints = [];
+            initDrawingCanvas();
+        });
+        
+        processBtn.addEventListener('click', processDrawing);
+        
+        uploadSvgBtn.addEventListener('click', () => {
+            svgInput.click();
+        });
+        
+        svgInput.addEventListener('change', handleSvgUpload);
+        
+        backBtn.addEventListener('click', () => {
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+                animationId = null;
+            }
+            activateTab('draw');
+        });
+        
+        playPauseBtn.addEventListener('click', togglePlayPause);
+        
+        resetBtn.addEventListener('click', () => {
+            prepareEpicycles();
+            
+            time = 0;
+            tracePath = [];
+            if (!isPlaying) {
+                togglePlayPause();
+            }
+            drawFourier();
+        });
+
+        showOriginalCheckbox.addEventListener('change', () => {
+            drawFourier();
+        });
+        
+        numCirclesSlider.addEventListener('input', () => {
+            const value = numCirclesSlider.value;
+            numCirclesValue.textContent = value;
+            
+            if (fourierX.length > 0 && fourierY.length > 0) {
+                prepareEpicycles();
+                tracePath = [];
+                time = 0;
+                drawFourier();
+            }
+        });
+        
+        animationSpeedSlider.addEventListener('input', () => {
+            const value = parseFloat(animationSpeedSlider.value).toFixed(1);
+            animationSpeedValue.textContent = `${value}×`;
+        });
+        
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const tabName = tab.getAttribute('data-tab');
+                activateTab(tabName);
+            });
+        });
+        
+        function activateTab(tabName) {
+            tabs.forEach(tab => {
+                if (tab.getAttribute('data-tab') === tabName) {
+                    tab.classList.add('active');
+                } else {
+                    tab.classList.remove('active');
+                }
+            });
+            
+            tabContents.forEach(content => {
+                if (content.getAttribute('data-tab') === tabName) {
+                    content.classList.add('active');
+                } else {
+                    content.classList.remove('active');
+                }
+            });
+            
+            if (tabName === 'trace' && fourierX.length === 0 && pathPoints.length > 0) {
+                processDrawing();
+            }
+        }
+        
+        function togglePlayPause() {
+            isPlaying = !isPlaying;
+            playPauseBtn.textContent = isPlaying ? 'Pause' : 'Play';
+            
+            if (isPlaying) {
+                drawFourier();
+            } else if (animationId) {
+                cancelAnimationFrame(animationId);
+                animationId = null;
+            }
+        }
+        
+        function processDrawing() {
+            if (pathPoints.length < 2) {
+                alert('Please draw something first!');
+                return;
+            }
+            
+
+            resampledPoints = resamplePath(pathPoints, 1024);
+            const complexPoints = [];
+            for (let i = 0; i < resampledPoints.length; i++) {
+                const point = resampledPoints[i];
+                complexPoints.push({ re: point.x - drawingCanvas.width/2, im: point.y - drawingCanvas.height/2 });
+            }
+            
+            fourierX = dft(complexPoints);
+            fourierX.sort((a, b) => b.amp - a.amp);
+            
+            prepareEpicycles();
+            
+            activateTab('trace');
+            
+            tracePath = [];
+            time = 0;
+            
+            drawFourier();
+        }
+        
+        function prepareEpicycles() {
+            const numCircles = parseInt(numCirclesSlider.value);
+            epicycles = fourierX.slice(0, numCircles);
+        }
+        
+        function drawFourier() {
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
+            
+            initTraceCanvas();
+
+            if (showOriginalCheckbox.checked && resampledPoints.length > 0) {
+                traceCtx.beginPath();
+                traceCtx.strokeStyle = '#000';
+                traceCtx.lineWidth = 1;
+                traceCtx.moveTo(resampledPoints[0].x, resampledPoints[0].y);
+                for (let i = 1; i < resampledPoints.length; i++) {
+                    traceCtx.lineTo(resampledPoints[i].x, resampledPoints[i].y);
+                }
+                traceCtx.stroke();
+            }
+            
+            const centerX = traceCanvas.width / 2;
+            const centerY = traceCanvas.height / 2;
+            
+            let x = centerX;
+            let y = centerY;
+            
+            for (let i = 0; i < epicycles.length; i++) {
+                const prevX = x;
+                const prevY = y;
+                
+                const epicycle = epicycles[i];
+                const radius = epicycle.amp;
+                const phase = epicycle.phase;
+                const freq = epicycle.freq;
+                
+                x += radius * Math.cos(freq * time + phase);
+                y += radius * Math.sin(freq * time + phase);
+                
+                traceCtx.beginPath();
+                traceCtx.strokeStyle = '#aaa';
+                traceCtx.lineWidth = 1;
+                traceCtx.arc(prevX, prevY, radius, 0, 2 * Math.PI);
+                traceCtx.stroke();
+                
+                traceCtx.beginPath();
+                traceCtx.strokeStyle = '#666';
+                traceCtx.lineWidth = 1;
+                traceCtx.moveTo(prevX, prevY);
+                traceCtx.lineTo(x, y);
+                traceCtx.stroke();
+                }
+
+                tracePath.push({x, y});
+
+                traceCtx.beginPath();
+                traceCtx.strokeStyle = '#f00';
+                traceCtx.lineWidth = 2;
+                traceCtx.moveTo(tracePath[0].x, tracePath[0].y);
+                for (let i = 1; i < tracePath.length; i++) {
+                    traceCtx.lineTo(tracePath[i].x, tracePath[i].y);
+                }
+                traceCtx.stroke();
+
+                if (isPlaying) {
+                    const speed = parseFloat(animationSpeedSlider.value);
+                    time += (2 * Math.PI) / fourierX.length * speed;
+                    
+                    if (time > 2 * Math.PI) {
+                        time = 0;
+                        tracePath = [];
+                    }
+                    
+                    animationId = requestAnimationFrame(drawFourier);
+                }
+                }
+
+                function handleSvgUpload(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const svgContent = event.target.result;
+                    const parser = new DOMParser();
+                    const svgDoc = parser.parseFromString(svgContent, "image/svg+xml");
+                    
+                    const pathElements = svgDoc.querySelectorAll('path');
+                    if (pathElements.length === 0) {
+                        alert('No path elements found in SVG');
+                        return;
+                    }
+                    
+                    pathPoints = [];
+                    initDrawingCanvas();
+                    
+                    pathElements.forEach(pathElement => {
+                        const pathData = pathElement.getAttribute('d');
+                        const extractedPoints = extractPointsFromSvgPath(pathData);
+                        pathPoints = [...pathPoints, ...extractedPoints];
+                        
+                        drawingCtx.beginPath();
+                        drawingCtx.moveTo(extractedPoints[0].x, extractedPoints[0].y);
+                        for (let i = 1; i < extractedPoints.length; i++) {
+                            drawingCtx.lineTo(extractedPoints[i].x, extractedPoints[i].y);
+                        }
+                        drawingCtx.stroke();
+                    });
+                    
+                    svgInput.value = '';
+                };
+                reader.readAsText(file);
+                }
+
+                function extractPointsFromSvgPath(pathData) {
+                //This is a simplified parser for SVG paths
+                //It handles M (moveto) and L (lineto) commands
+                const commands = pathData.match(/[MLHVCQTASZmlhvcqtasz][^MLHVCQTASZmlhvcqtasz]*/g) || [];
+                const points = [];
+                let currentX = 0;
+                let currentY = 0;
+
+                const scale = Math.min(
+                    drawingCanvas.width / 100,
+                    drawingCanvas.height / 100
+                );
+                const offsetX = drawingCanvas.width / 4;
+                const offsetY = drawingCanvas.height / 4;
+
+                for (let cmd of commands) {
+                    const type = cmd[0];
+                    const args = cmd.slice(1).trim().split(/[\s,]+/).map(parseFloat);
+                    
+                    switch (type) {
+                        case 'M':  // Move to (absolute)
+                            currentX = args[0] * scale + offsetX;
+                            currentY = args[1] * scale + offsetY;
+                            points.push({x: currentX, y: currentY});
+                            break;
+                        case 'm':  // Move to (relative)
+                            currentX += args[0] * scale;
+                            currentY += args[1] * scale;
+                            points.push({x: currentX, y: currentY});
+                            break;
+                        case 'L': // Line to (absolute)
+                            for (let i = 0; i < args.length; i += 2) {
+                                currentX = args[i] * scale + offsetX;
+                                currentY = args[i+1] * scale + offsetY;
+                                points.push({x: currentX, y: currentY});
+                            }
+                            break;
+                        case 'l': // Line to (relative)
+                            for (let i = 0; i < args.length; i += 2) {
+                                currentX += args[i] * scale;
+                                currentY += args[i+1] * scale;
+                                points.push({x: currentX, y: currentY});
+                            }
+                            break;
+                        case 'H': // Horizontal line to (absolute)
+                            for (let i = 0; i < args.length; i++) {
+                                currentX = args[i] * scale + offsetX;
+                                points.push({x: currentX, y: currentY});
+                            }
+                            break;
+                        case 'h': // Horizontal line to (relative)
+                            for (let i = 0; i < args.length; i++) {
+                                currentX += args[i] * scale;
+                                points.push({x: currentX, y: currentY});
+                            }
+                            break;
+                        case 'V': // Vertical line to (absolute)
+                            for (let i = 0; i < args.length; i++) {
+                                currentY = args[i] * scale + offsetY;
+                                points.push({x: currentX, y: currentY});
+                            }
+                            break;
+                        case 'v': // Vertical line to (relative)
+                            for (let i = 0; i < args.length; i++) {
+                                currentY += args[i] * scale;
+                                points.push({x: currentX, y: currentY});
+                            }
+                            break;
+                    }
+                }
+
+                return points;
+                }
+
+                function resamplePath(path, numPoints) {
+                let totalLength = 0;
+                for (let i = 1; i < path.length; i++) {
+                    const p1 = path[i-1];
+                    const p2 = path[i];
+                    const dx = p2.x - p1.x;
+                    const dy = p2.y - p1.y;
+                    totalLength += Math.sqrt(dx*dx + dy*dy);
+                }
+
+                const resampledPath = [];
+                let accumulatedLength = 0;
+                let currentPoint = 0;
+
+                resampledPath.push(path[0]);
+
+                for (let i = 1; i < numPoints; i++) {
+                    const targetLength = (i / numPoints) * totalLength;
+                    
+                    while (accumulatedLength < targetLength && currentPoint < path.length - 1) {
+                        const p1 = path[currentPoint];
+                        const p2 = path[currentPoint + 1];
+                        const dx = p2.x - p1.x;
+                        const dy = p2.y - p1.y;
+                        const segmentLength = Math.sqrt(dx*dx + dy*dy);
+                        
+                        if (accumulatedLength + segmentLength >= targetLength) {
+                            const t = (targetLength - accumulatedLength) / segmentLength;
+                            const x = p1.x + t * dx;
+                            const y = p1.y + t * dy;
+                            resampledPath.push({x, y});
+                            break;
+                        } else {
+                            accumulatedLength += segmentLength;
+                            currentPoint++;
+                        }
+                    }
+                }
+
+                resampledPath.push(path[path.length - 1]);
+
+                return resampledPath;
+                }
+
+                // Discrete Fourier Transform
+                function dft(x) {
+                const X = [];
+                const N = x.length;
+
+                for (let k = 0; k < N; k++) {
+                    let re = 0;
+                    let im = 0;
+                    
+                    for (let n = 0; n < N; n++) {
+                        const phi = (2 * Math.PI * k * n) / N;
+                        re += x[n].re * Math.cos(phi) + x[n].im * Math.sin(phi);
+                        im += -x[n].re * Math.sin(phi) + x[n].im * Math.cos(phi);
+                    }
+                    
+                    re = re / N;
+                    im = im / N;
+                    
+                    const freq = k;
+                    const amp = Math.sqrt(re*re + im*im);
+                    const phase = Math.atan2(im, re);
+                    
+                    X.push({re, im, freq, amp, phase});
+                }
+
+                return X;
+                }
+
+                // Initialize canvas on page load
+                initDrawingCanvas();
+                initTraceCanvas();
+</script>
+</body>
+</html>
+

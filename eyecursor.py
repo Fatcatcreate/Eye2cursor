@@ -734,7 +734,6 @@ class EyeTrackingInterface:
         frame_count = 0
         fps_start_time = time.time()
         fps = 0
-        
         # Start the main loop
         while self.control_mode:
             # Read frame
@@ -767,6 +766,7 @@ class EyeTrackingInterface:
             # If we have eye features, predict gaze
             if result is not None and self.gaze_model is not None:
                 _, eye_images, frame_with_eyes = result
+                print("hellloooo")
                 
                 # Predict gaze position
                 gaze_position = self.predict_gaze_position(eye_images)

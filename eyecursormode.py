@@ -767,6 +767,7 @@ class EyeTrackingInterface:
             # If we have eye features, predict gaze
             if result is not None and self.gaze_model is not None:
                 _, eye_images, frame_with_eyes = result
+                print(f"helli")
                 
                 # Predict gaze position
                 gaze_position = self.predict_gaze_position(eye_images)
@@ -838,42 +839,44 @@ class EyeTrackingInterface:
                     right_eye = cv2.resize(eye_images[:, :, 1], (128, 96))
                     right_eye = cv2.cvtColor((right_eye * 255).astype(np.uint8), cv2.COLOR_GRAY2BGR)
                     status_display[180:180+96, 168:168+128] = right_eye
+                
+
+                                # Detect blink if we have eye data
+                is_blinking = self.detect_blink(eye_images)
+                current_time = time.time()
+
+                # Process blink actions with cooldown
+                if is_blinking and (self.last_blink_time is None or 
+                                current_time - self.last_blink_time > self.blink_cooldown):
+                    
+                    if self.interface_mode == "blink_click":
+                        # In blink_click mode, blink performs a click
+                        pyautogui.click()
+                        cv2.putText(status_display, "BLINK CLICK!", (120, 150), 
+                                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+                    else:
+                        # In dwell_click mode, blink performs a scroll
+                        # Check if we're in scroll regions for direction
+                        if y < self.screen_height * self.scroll_regions["top"]:
+                            pyautogui.scroll(10)  # Scroll up
+                            cv2.putText(status_display, "SCROLL UP", (120, 150), 
+                                        cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
+                        elif y > self.screen_height * self.scroll_regions["bottom"]:
+                            pyautogui.scroll(-10)  # Scroll down
+                            cv2.putText(status_display, "SCROLL DOWN", (120, 150), 
+                                        cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
+                        else:
+                            pyautogui.scroll(-5)  # Default scroll down
+                            cv2.putText(status_display, "SCROLL", (120, 150), 
+                                        cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
+                    
+                    self.last_blink_time = current_time
+
             else:
                 cv2.putText(status_display, "No eyes detected", (100, 150), 
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
                 
 
-            # Detect blink if we have eye data
-            is_blinking = self.detect_blink(eye_images)
-            current_time = time.time()
-
-            # Process blink actions with cooldown
-            if is_blinking and (self.last_blink_time is None or 
-                            current_time - self.last_blink_time > self.blink_cooldown):
-                
-                if self.interface_mode == "blink_click":
-                    # In blink_click mode, blink performs a click
-                    pyautogui.click()
-                    cv2.putText(status_display, "BLINK CLICK!", (120, 150), 
-                                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-                else:
-                    # In dwell_click mode, blink performs a scroll
-                    # Check if we're in scroll regions for direction
-                    if y < self.screen_height * self.scroll_regions["top"]:
-                        pyautogui.scroll(10)  # Scroll up
-                        cv2.putText(status_display, "SCROLL UP", (120, 150), 
-                                    cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
-                    elif y > self.screen_height * self.scroll_regions["bottom"]:
-                        pyautogui.scroll(-10)  # Scroll down
-                        cv2.putText(status_display, "SCROLL DOWN", (120, 150), 
-                                    cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
-                    else:
-                        pyautogui.scroll(-5)  # Default scroll down
-                        cv2.putText(status_display, "SCROLL", (120, 150), 
-                                    cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
-                
-                self.last_blink_time = current_time
-            
             # Display status
             cv2.imshow("Eye Tracking Status", status_display)
             cv2.putText(status_display, f"Mode: {self.interface_mode}", (10, 90), 

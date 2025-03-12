@@ -360,10 +360,10 @@ class EyeTrackingInterface:
                        (screen_w//2-100, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
             cv2.imshow("Data Collection", data_img)
             
+            
             # Collect samples
             samples_per_point = 30
             collected = 0
-
 
             start_time = time.time()
             timeout = 3  # seconds

@@ -497,7 +497,7 @@ class EyeTrackingInterface:
         # Train model
         history = model.fit(
             X_train, y_train,
-            epochs=20,
+            epochs=100,
             batch_size=32,
             validation_data=(X_val, y_val),
             verbose=1

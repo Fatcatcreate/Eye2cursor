@@ -361,7 +361,6 @@ class EyeTrackingInterface:
             cv2.imshow("Data Collection", data_img)
             
 
-            d
 
             # Collect samples
             samples_per_point = 30

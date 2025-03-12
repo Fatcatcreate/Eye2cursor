@@ -363,6 +363,9 @@ class EyeTrackingInterface:
             # Collect samples
             samples_per_point = 30
             collected = 0
+
+
+            
             
             start_time = time.time()
             timeout = 3  # seconds

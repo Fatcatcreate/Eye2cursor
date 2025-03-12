@@ -11,6 +11,7 @@ import threading
 import dlib
 from collections import deque
 
+
 # macOS-specific setup
 pyautogui.FAILSAFE = False  # Disable fail-safe for smoother operation
 # Set a more reasonable duration for cursor movement on macOS
@@ -18,8 +19,16 @@ MOVE_DURATION = 0.05
 
 class EyeTracker:
     def __init__(self):
+
+        # macOS-specific setup for OpenCV
+        cv2.setNumThreads(1)  # Reduce threading issues
+        
+        # Create named windows before using them to avoid crashes
+        cv2.namedWindow("Calibration", cv2.WINDOW_NORMAL)
+        cv2.namedWindow("Eye Tracker", cv2.WINDOW_NORMAL)
+
         # Configuration
-        self.calibration_points = 9  # Number of calibration points (3x3 grid)
+        self.calibration_points = 81  # Number of calibration points (9x9 grid)
         self.calibration_duration = 2  # Seconds to look at each point
         self.blink_threshold = 0.2  # Ratio of eye height to width
         self.blink_duration = 0.3  # Seconds eye must be closed to count as a blink
@@ -188,6 +197,32 @@ class EyeTracker:
         self.root.after(5000, self.run_calibration)
         self.root.mainloop()
     
+    def start_calibration(self):
+        """Start the calibration process with UI"""
+        self.root = tk.Tk()
+        self.root.title("Eye Tracker Calibration")
+        
+        # On macOS, use attributes that work better with macOS window manager
+        self.root.attributes('-fullscreen', True)
+        
+        self.canvas = tk.Canvas(self.root, bg="black")
+        self.canvas.pack(fill=tk.BOTH, expand=True)
+        
+        self.info_label = tk.Label(
+            self.root, 
+            text="Calibration will start in 5 seconds.\nLook at the red dot when it appears.",
+            font=("SF Pro", 24),  # macOS system font
+            fg="white",
+            bg="black"
+        )
+        self.info_label.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+        
+        # Completely avoid showing OpenCV windows during Tkinter calibration
+        self.disable_opencv_windows = True
+        
+        self.root.after(5000, self.run_calibration)
+        self.root.mainloop()
+        
     def run_calibration(self):
         """Run the calibration sequence"""
         self.info_label.destroy()
@@ -221,7 +256,7 @@ class EyeTracker:
             # Collect data for this point
             start_time = time.time()
             point_features = []
-            
+            """
             def collect_data():
                 nonlocal point_features
                 while time.time() - start_time < self.calibration_duration:
@@ -234,7 +269,15 @@ class EyeTracker:
                         point_features.append(features)
                     
                     # Show webcam feed in small window
-                    cv2.imshow("Calibration", cv2.resize(processed_frame, (320, 240)))
+                    
+                            # Add error handling for the display
+                    try:
+                        resized_frame = cv2.resize(processed_frame, (320, 240))
+                        cv2.imshow("Calibration", resized_frame)
+                        cv2.waitKey(1)  # Ensure waitKey is called after imshow
+                    except Exception as e:
+                        print(f"Display warning (non-critical): {e}")
+
                     if cv2.waitKey(1) & 0xFF == ord('q'):
                         self.root.destroy()
                         return
@@ -247,6 +290,8 @@ class EyeTracker:
                 
                 # Move to next point
                 self.root.after(100, lambda: show_point(index + 1))
+                """
+            
             
             # Start collecting data in a separate thread
             threading.Thread(target=collect_data, daemon=True).start()

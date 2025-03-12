@@ -361,7 +361,7 @@ class EyeTrackingInterface:
             cv2.imshow("Data Collection", data_img)
             
             # Collect samples
-            samples_per_point = 10
+            samples_per_point = 30
             collected = 0
             
             start_time = time.time()
@@ -388,7 +388,7 @@ class EyeTrackingInterface:
                     return False
             
             # Short delay before moving to next point
-            time.sleep(1)
+            time.sleep(2)
         
         # Final message
         data_img = np.zeros((screen_h, screen_w, 3), dtype=np.uint8)

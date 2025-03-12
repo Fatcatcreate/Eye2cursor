@@ -388,7 +388,7 @@ class EyeTrackingInterface:
                     return False
             
             # Short delay before moving to next point
-            time.sleep(0.2)
+            time.sleep(1)
         
         # Final message
         data_img = np.zeros((screen_h, screen_w, 3), dtype=np.uint8)

@@ -60,9 +60,9 @@ class EyeTrackerCursor:
         
         # Enhanced mode settings with Mac-specific parameters
         self.mode = "cursor"  # Default mode: cursor control
-        self.blink_threshold = 0.25  # Adjusted for Mac camera sensitivity
+        self.blink_threshold = 0.2  # Adjusted for Mac camera sensitivity
         self.last_blink_time = time.time()
-        self.blink_cooldown = 0.5  # Increased to prevent accidental clicks
+        self.blink_cooldown = 0.05  # Increased to prevent accidental clicks
         self.long_blink_threshold = 1.0  # Seconds for long blink detection
         self.blink_start_time = None
         
@@ -78,7 +78,7 @@ class EyeTrackerCursor:
         self.frame_height = 720
         
         # Create data directory if it doesn't exist
-        self.data_dir = os.path.expanduser("~/Documents/EyeTrackerData")
+        self.data_dir = os.path.expanduser("~/myvscode/my/Buildownx/Eye/EyeTrackerData")
         os.makedirs(self.data_dir, exist_ok=True)
         
     def start_camera(self):
@@ -163,19 +163,19 @@ class EyeTrackerCursor:
         
         return features
     
-    def calibrate(self, num_points=16):
+    def calibrate(self, num_points=49):
         """Enhanced calibration with more points and validation for Mac"""
         if not self.start_camera():
             print("Failed to open camera")
             return False
         
         # Generate more calibration points on screen for better accuracy
-        x_points = [self.screen_width * 0.1, self.screen_width * 0.3, 
+        x_points = [self.screen_width * 0.05,self.screen_width * 0.1, self.screen_width * 0.3, 
                    self.screen_width * 0.5, self.screen_width * 0.7, 
-                   self.screen_width * 0.9]
-        y_points = [self.screen_height * 0.1, self.screen_height * 0.3, 
+                   self.screen_width * 0.9, self.screen_width * 0.95]
+        y_points = [self.screen_width * 0.05,self.screen_height * 0.1, self.screen_height * 0.3, 
                    self.screen_height * 0.5, self.screen_height * 0.7,
-                   self.screen_height * 0.9]
+                   self.screen_height * 0.9, self.screen_width * 0.95]
         
         # Create a grid of calibration points
         self.calibration_points = []
@@ -388,6 +388,7 @@ class EyeTrackerCursor:
         """Handle blink detection and actions with improved timing for Mac"""
         current_time = time.time()
         avg_ear = (left_ear + right_ear) / 2
+        print(f"Current EAR: {avg_ear:.2f}, Threshold: {self.blink_threshold}")
         
         # Start tracking blink if detected
         if avg_ear < self.blink_threshold and self.blink_start_time is None:
@@ -408,6 +409,7 @@ class EyeTrackerCursor:
                     if self.mode == "cursor" or self.mode == "click":
                         # Left click
                         pyautogui.click()
+                        print("Click!")
                         return "click"
                     elif self.mode == "drag":
                         # Toggle drag state
@@ -431,7 +433,7 @@ class EyeTrackerCursor:
     def handle_scroll(self, y_position):
         """Handle scroll behavior with improved sensitivity for Mac"""
         if self.mode == "scroll":
-            center_region = 0.1  # Dead zone in the middle (10% of screen)
+            center_region = 0.3  # Dead zone in the middle (10% of screen)
             scroll_speed_factor = 0.5  # Mac-specific scroll speed adjustment
             
             # Calculate normalized position (0 to 1) with center region removed

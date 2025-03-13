@@ -558,9 +558,8 @@ class EyeTrackerCursor:
             
             if time.time() - last_fps_update > 1.0:  # Update FPS display once per second
                 fps = 1.0 / (sum(frame_times) / len(frame_times))
-                last_fps_update = time.time()
-            
-            cv2.putText(frame, f"FPS: {fps:.1f}", (frame.shape[1] - 120, 30), 
+                last_fps_update = time.time()          
+                cv2.putText(frame, f"FPS: {fps:.1f}", (frame.shape[1] - 120, 30), 
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
             
             # Display frame

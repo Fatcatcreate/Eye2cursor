@@ -34,7 +34,7 @@ class EyeTrackerCursor:
         
         # Mode settings
         self.mode = "cursor"  # Default mode: cursor control
-        self.blink_threshold = 0.1
+        self.blink_threshold = 0.4
         self.last_blink_time = time.time()
         self.blink_cooldown = 0.05  # Seconds
         

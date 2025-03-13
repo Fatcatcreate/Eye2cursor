@@ -390,9 +390,6 @@ class EyeTrackerCursor:
         avg_ear = (left_ear + right_ear) / 2
         print(f"Current EAR: {avg_ear:.2f}, Threshold: {self.blink_threshold}")
         
-        if self.mode == "cursor" or self.mode == "click":
-            self.blink_threshold = 0.02
-
         # Start tracking blink if detected
         if avg_ear < self.blink_threshold and self.blink_start_time is None:
             self.blink_start_time = current_time

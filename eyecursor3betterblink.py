@@ -65,6 +65,13 @@ class EyeTrackerCursor:
         self.blink_cooldown = 0.05  # Increased to prevent accidental clicks
         self.long_blink_threshold = 1.0  # Seconds for long blink detection
         self.blink_start_time = None
+
+        # Add new blink detection parameters
+        self.blink_detection_mode = "absolute"  # "absolute" or "relative"
+        self.relative_blink_threshold = 0.15  # 15% change indicates a blink
+        self.avg_open_ear = 0.02  # Your observed open eye value
+        self.avg_closed_ear = 0.01  # Your observed closed eye value
+        self.ear_history = []  # To track recent EAR values
         
         # Smoothing parameters for cursor movement
         self.smoothing_factor = 0.5  # How much to smooth movement (higher = smoother)
@@ -78,7 +85,7 @@ class EyeTrackerCursor:
         self.frame_height = 720
         
         # Create data directory if it doesn't exist
-        self.data_dir = os.path.expanduser("~/myvscode/my/Buildownx/Eye/EyeTrackerData")
+        self.data_dir = os.path.expanduser("~/myvscode/my/Buildownx/Eye/betterblinkTrackerData")
         os.makedirs(self.data_dir, exist_ok=True)
         
     def start_camera(self):
@@ -127,20 +134,20 @@ class EyeTrackerCursor:
     """
 
     def calculate_eye_aspect_ratio(self, eye_landmarks):
-        """Improved EAR calculation with normalization for low-value cameras"""
-        # Compute vertical distances
+        """Calculate eye aspect ratio with enhanced sensitivity for small differences"""
+        # Compute the euclidean distances between the vertical eye landmarks
         v1 = np.linalg.norm(eye_landmarks[1] - eye_landmarks[5])
         v2 = np.linalg.norm(eye_landmarks[2] - eye_landmarks[4])
         
-        # Compute horizontal distance
+        # Compute the euclidean distance between the horizontal eye landmarks
         h = np.linalg.norm(eye_landmarks[0] - eye_landmarks[8])
         
-        # If horizontal is too small (to avoid division by zero)
+        # Avoid division by zero
         if h < 0.001:
-            return 0.3  # Default open eye value
+            return 0.02  # Default open eye value based on your observations
         
-        # Compute EAR with adjustment factor for macOS cameras
-        ear = ((v1 + v2) / (2.0 * h)) * 10  # Multiply by 10 to scale up the values
+        # Apply a stronger amplification factor (20x instead of 10x)
+        ear = ((v1 + v2) / (2.0 * h)) * 20
         
         return ear
 
@@ -403,20 +410,43 @@ class EyeTrackerCursor:
         return self.mode
     
     def handle_blink(self, left_ear, right_ear):
-        """Handle blink detection and actions with improved timing for Mac"""
+        """Improved blink detection for very small EAR differences"""
         current_time = time.time()
         avg_ear = (left_ear + right_ear) / 2
-        print(f"Current EAR: {avg_ear:.2f}, Threshold: {self.blink_threshold}")
+        
+        # Store EAR history for better detection
+        if not hasattr(self, 'ear_history'):
+            self.ear_history = []
+        
+        # Add current EAR to history, keeping last 10 frames
+        self.ear_history.append(avg_ear)
+        if len(self.ear_history) > 10:
+            self.ear_history.pop(0)
+        
+        # Calculate recent baseline (average of last 10 frames)
+        baseline = np.mean(self.ear_history) if len(self.ear_history) > 5 else avg_ear
+        
+        # Calculate relative change from baseline
+        relative_change = (baseline - avg_ear) / baseline if baseline > 0 else 0
+        
+        # Debug info
+        print(f"Current EAR: {avg_ear:.4f}, Baseline: {baseline:.4f}, Change: {relative_change:.4f}")
+        
+        # Detect blink using relative change instead of absolute threshold
+        # A significant drop from baseline indicates closed eyes
+        blink_detected = relative_change > 0.15  # 15% drop from baseline
         
         # Start tracking blink if detected
-        if avg_ear < self.blink_threshold and self.blink_start_time is None:
+        if blink_detected and self.blink_start_time is None:
             self.blink_start_time = current_time
+            print("Blink started")
             return None  # No action yet
             
-        # If we were in a blink and eyes are now open
-        elif avg_ear >= self.blink_threshold and self.blink_start_time is not None:
+        # If we were in a blink and now it's ended (eyes open again)
+        elif not blink_detected and self.blink_start_time is not None:
             blink_duration = current_time - self.blink_start_time
             self.blink_start_time = None
+            print(f"Blink ended - duration: {blink_duration:.2f}s")
             
             # Only process if cooldown has passed
             if current_time - self.last_blink_time > self.blink_cooldown:
@@ -448,6 +478,116 @@ class EyeTrackerCursor:
                     
         return None
     
+    def calibrate_blink_detection(self):
+        """Special calibration for very small EAR differences"""
+        print("Starting blink detection calibration...")
+        print("Please keep your eyes open normally for 3 seconds")
+        
+        if not self.cap or not self.cap.isOpened():
+            if not self.start_camera():
+                print("Failed to open camera for calibration")
+                return False
+        
+        # Collect open eye samples
+        open_samples = []
+        start_time = time.time()
+        
+        while time.time() - start_time < 3:
+            ret, frame = self.cap.read()
+            if not ret:
+                continue
+                
+            # Process frame
+            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            results = self.face_mesh.process(frame_rgb)
+            
+            if results.multi_face_landmarks:
+                landmarks = results.multi_face_landmarks[0].landmark
+                features = self.extract_eye_features(landmarks)
+                left_ear = features[-6]
+                right_ear = features[-5]
+                avg_ear = (left_ear + right_ear) / 2
+                open_samples.append(avg_ear)
+                
+            # Show progress
+            cv2.putText(frame, "Keep eyes OPEN", (50, 50), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+            cv2.putText(frame, f"Time: {time.time() - start_time:.1f}s", (50, 90), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+            cv2.imshow("Blink Calibration", frame)
+            cv2.waitKey(1)
+        
+        # Now collect closed eye samples
+        print("Now please close your eyes for 3 seconds")
+        closed_samples = []
+        start_time = time.time()
+        
+        while time.time() - start_time < 3:
+            ret, frame = self.cap.read()
+            if not ret:
+                continue
+                
+            # Process frame
+            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            results = self.face_mesh.process(frame_rgb)
+            
+            if results.multi_face_landmarks:
+                landmarks = results.multi_face_landmarks[0].landmark
+                features = self.extract_eye_features(landmarks)
+                left_ear = features[-6]
+                right_ear = features[-5]
+                avg_ear = (left_ear + right_ear) / 2
+                closed_samples.append(avg_ear)
+                
+            # Show progress
+            cv2.putText(frame, "Keep eyes CLOSED", (50, 50), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+            cv2.putText(frame, f"Time: {time.time() - start_time:.1f}s", (50, 90), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+            cv2.imshow("Blink Calibration", frame)
+            cv2.waitKey(1)
+        
+        cv2.destroyWindow("Blink Calibration")
+        
+        # Calculate statistics
+        if len(open_samples) > 10 and len(closed_samples) > 10:
+            # Remove outliers
+            open_samples = sorted(open_samples)[5:-5]  # Remove 5 highest and lowest values
+            closed_samples = sorted(closed_samples)[5:-5]
+            
+            avg_open = np.mean(open_samples)
+            avg_closed = np.mean(closed_samples)
+            std_open = np.std(open_samples)
+            std_closed = np.std(closed_samples)
+            
+            print(f"Open eyes - Mean EAR: {avg_open:.4f}, Std: {std_open:.4f}")
+            print(f"Closed eyes - Mean EAR: {avg_closed:.4f}, Std: {std_closed:.4f}")
+            
+            # The difference is very small, so we need a sensitive threshold
+            difference = avg_open - avg_closed
+            
+            # If the difference is minimal (as in your case)
+            if difference < 0.015:
+                print("Very small difference detected between open and closed eyes.")
+                # Instead of a fixed threshold, we'll use a relative change approach
+                self.blink_detection_mode = "relative"
+                self.relative_blink_threshold = 0.15  # 15% drop from baseline indicates blink
+                print(f"Using relative detection with {self.relative_blink_threshold*100:.0f}% threshold")
+            else:
+                # Traditional threshold approach
+                self.blink_detection_mode = "absolute"
+                self.blink_threshold = (avg_open + avg_closed) / 2
+                print(f"Using absolute threshold of {self.blink_threshold:.4f}")
+            
+            # Save these values for future use
+            self.avg_open_ear = avg_open
+            self.avg_closed_ear = avg_closed
+            
+            return True
+        else:
+            print("Not enough samples collected for calibration")
+            return False
+        
     def handle_scroll(self, y_position):
         """Handle scroll behavior with improved sensitivity for Mac"""
         if self.mode == "scroll":
@@ -641,6 +781,7 @@ if __name__ == "__main__":
         print("Starting calibration...")
         if tracker.calibrate():
             # Save model after calibration
+            tracker.calibrate_blink_detection()
             tracker.save_models()
             tracker.run()
         else:

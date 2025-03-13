@@ -109,9 +109,8 @@ class EyeTrackerCursor:
         else:
             print("Failed to open any camera")
             return False
-    
+    """
     def calculate_eye_aspect_ratio(self, eye_landmarks):
-        """Calculate the eye aspect ratio with improved algorithm for Mac cameras"""
         # Compute the euclidean distances between the vertical eye landmarks
         # Using more points than original for better accuracy
         v1 = np.linalg.norm(eye_landmarks[1] - eye_landmarks[5])
@@ -125,7 +124,26 @@ class EyeTrackerCursor:
         ear = (v1 + v2 + v3) / (3.0 * h)
         
         return ear
-    
+    """
+
+    def calculate_eye_aspect_ratio(self, eye_landmarks):
+        """Improved EAR calculation with normalization for low-value cameras"""
+        # Compute vertical distances
+        v1 = np.linalg.norm(eye_landmarks[1] - eye_landmarks[5])
+        v2 = np.linalg.norm(eye_landmarks[2] - eye_landmarks[4])
+        
+        # Compute horizontal distance
+        h = np.linalg.norm(eye_landmarks[0] - eye_landmarks[8])
+        
+        # If horizontal is too small (to avoid division by zero)
+        if h < 0.001:
+            return 0.3  # Default open eye value
+        
+        # Compute EAR with adjustment factor for macOS cameras
+        ear = ((v1 + v2) / (2.0 * h)) * 10  # Multiply by 10 to scale up the values
+        
+        return ear
+
     def extract_eye_features(self, landmarks):
         """Extract comprehensive eye landmark features"""
         # Extract full eye contour landmarks
@@ -390,8 +408,6 @@ class EyeTrackerCursor:
         avg_ear = (left_ear + right_ear) / 2
         print(f"Current EAR: {avg_ear:.2f}, Threshold: {self.blink_threshold}")
         
-
-
         # Start tracking blink if detected
         if avg_ear < self.blink_threshold and self.blink_start_time is None:
             self.blink_start_time = current_time

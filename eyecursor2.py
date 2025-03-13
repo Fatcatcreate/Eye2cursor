@@ -260,8 +260,8 @@ class EyeTrackerCursor:
                 y_pred = self.model_y.predict([features])[0]
                 
                 # Apply smoothing
-                x_pred = max(0, min(x_pred, self.screen_width))
-                y_pred = max(0, min(y_pred, self.screen_height))
+                x_pred = max(0, min(x_pred, self.screen_width-10))
+                y_pred = max(0, min(y_pred, self.screen_height-10))
                 
                 # Move cursor
                 pyautogui.moveTo(x_pred, y_pred, duration=0.1)

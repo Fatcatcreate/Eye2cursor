@@ -188,17 +188,17 @@ class EyeTrackerCursor:
         
         return features
     
-    def calibrate(self, num_points=49):
+    def calibrate(self, num_points=36):
         """Enhanced calibration with more points and validation for Mac"""
         if not self.start_camera():
             print("Failed to open camera")
             return False
         
         # Generate more calibration points on screen for better accuracy
-        x_points = [self.screen_width * 0.05,self.screen_width * 0.1, self.screen_width * 0.3, 
+        x_points = [self.screen_width * 0.1, self.screen_width * 0.3, 
                    self.screen_width * 0.5, self.screen_width * 0.7, 
                    self.screen_width * 0.9, self.screen_width * 0.95]
-        y_points = [self.screen_width * 0.05,self.screen_height * 0.1, self.screen_height * 0.3, 
+        y_points = [self.screen_height * 0.1, self.screen_height * 0.3, 
                    self.screen_height * 0.5, self.screen_height * 0.7,
                    self.screen_height * 0.9, self.screen_width * 0.95]
         

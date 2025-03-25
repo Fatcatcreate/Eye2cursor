@@ -84,6 +84,7 @@ class EyeTrackerCursor:
         self.data_dir = os.path.expanduser("~/myvscode/my/Buildownx/Eye/english")
         os.makedirs(self.data_dir, exist_ok=True)
         
+        
     def start_camera(self):
         """Initialize the webcam capture with Mac-optimized settings"""
         self.cap = cv2.VideoCapture(self.camera_index)

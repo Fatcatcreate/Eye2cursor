@@ -73,7 +73,6 @@ class EyeTrackerCursor:
         self.frame_width = 1280  # Higher resolution for Mac cameras
         self.frame_height = 720
         
-        # Create data directory if it doesn't exist
         self.data_dir = os.path.expanduser("~/myvscode/my/Buildownx/Eye/english")
         os.makedirs(self.data_dir, exist_ok=True)
         
@@ -84,20 +83,17 @@ class EyeTrackerCursor:
         
         if not self.cap.isOpened():
             print("Failed to open default camera. Trying alternative...")
-            # Try an alternative camera index that might work on Mac
             self.camera_index = 1
             self.cap = cv2.VideoCapture(self.camera_index)
         
         if self.cap.isOpened():
-            # Set higher resolution for Mac cameras
             self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.frame_width)
             self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.frame_height)
             
-            # Set focus mode to auto for Mac cameras if available
+
             if self.is_mac:
                 self.cap.set(cv2.CAP_PROP_AUTOFOCUS, 1)
                 
-            # Get actual camera resolution
             actual_width = self.cap.get(cv2.CAP_PROP_FRAME_WIDTH)
             actual_height = self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
             print(f"Camera initialized at resolution: {actual_width}x{actual_height}")
@@ -108,7 +104,6 @@ class EyeTrackerCursor:
             return False
     
     def calculate_eye_aspect_ratio(self, eye_landmarks):
-        """Calculate the eye aspect ratio with improved algorithm for Mac cameras"""
         # Compute the euclidean distances between the vertical eye landmarks
         # Using more points than original for better accuracy
         v1 = np.linalg.norm(eye_landmarks[1] - eye_landmarks[5])
@@ -118,13 +113,11 @@ class EyeTrackerCursor:
         # Compute the euclidean distance between the horizontal eye landmarks
         h = np.linalg.norm(eye_landmarks[0] - eye_landmarks[8])
         
-        # Compute the eye aspect ratio with additional vertical measurements
         ear = (v1 + v2 + v3) / (3.0 * h)
         
         return ear
     
     def extract_eye_features(self, landmarks):
-        """Extract comprehensive eye landmark features"""
         # Extract full eye contour landmarks
         left_eye_landmarks = np.array([[landmarks[i].x, landmarks[i].y] for i in self.LEFT_EYE])
         right_eye_landmarks = np.array([[landmarks[i].x, landmarks[i].y] for i in self.RIGHT_EYE])
@@ -180,12 +173,10 @@ class EyeTrackerCursor:
         return features
     
     def calibrate(self, num_points=100):
-        """Enhanced calibration with more points and validation for Mac"""
         if not self.start_camera():
             print("Failed to open camera")
             return False
         
-        # Generate more calibration points on screen for better accuracy
         x_points = [self.screen_width * 0.1, self.screen_width * 0.2, 
                    self.screen_width * 0.3, self.screen_width * 0.4, 
                    self.screen_width * 0.5, self.screen_width * 0.6,
@@ -199,21 +190,17 @@ class EyeTrackerCursor:
                    self.screen_height * 0.9, self.screen_width * 0.95
                    ]
         
-        # Create a grid of calibration points
         self.calibration_points = []
         for x in x_points:
             for y in y_points:
-                # Don't use all combinations to reduce calibration time
                 if len(self.calibration_points) < num_points:
                     self.calibration_points.append((int(x), int(y)))
         
         print(f"Starting calibration with {len(self.calibration_points)} points...")
         print("Please follow the cursor and focus on each point when it appears.")
-        time.sleep(2)  # Give user time to prepare
+        time.sleep(2)  
         
-        # Calibration process with visual feedback
         for point_idx, (x, y) in enumerate(self.calibration_points):
-            # Create a small calibration window with feedback
             calib_window = np.ones((300, 400, 3), dtype=np.uint8) * 255
             cv2.putText(calib_window, f"Point {point_idx+1}/{len(self.calibration_points)}", 
                        (20, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
@@ -225,7 +212,6 @@ class EyeTrackerCursor:
             # Move cursor to calibration point
             pyautogui.moveTo(x, y)
             
-            # Wait for user to focus on the point
             countdown = 3
             while countdown > 0:
                 calib_window = np.ones((300, 400, 3), dtype=np.uint8) * 255
@@ -238,7 +224,6 @@ class EyeTrackerCursor:
                 time.sleep(1)
                 countdown -= 1
             
-            # Collect more data for each point (3 seconds)
             calib_window = np.ones((300, 400, 3), dtype=np.uint8) * 255
             cv2.putText(calib_window, f"Point {point_idx+1}/{len(self.calibration_points)}", 
                        (20, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
@@ -250,12 +235,11 @@ class EyeTrackerCursor:
             start_time = time.time()
             point_data = []
             
-            while time.time() - start_time < 3:  # 3-second collection
+            while time.time() - start_time < 3: 
                 ret, frame = self.cap.read()
                 if not ret:
                     continue
                 
-                # Convert to RGB for MediaPipe
                 frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 results = self.face_mesh.process(frame_rgb)
                 
@@ -270,7 +254,6 @@ class EyeTrackerCursor:
                 elapsed = time.time() - start_time
                 progress = min(elapsed / 3.0, 1.0) * 100
                 
-                # Update calibration window with progress bar
                 calib_window = np.ones((300, 400, 3), dtype=np.uint8) * 255
                 cv2.putText(calib_window, f"Point {point_idx+1}/{len(self.calibration_points)}", 
                            (20, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
@@ -281,9 +264,7 @@ class EyeTrackerCursor:
                 cv2.imshow("Calibration", calib_window)
                 cv2.waitKey(1)
             
-            # Filter and add the collected data
-            if len(point_data) > 10:  # Ensure we have enough samples
-                # Remove outliers (furthest from median)
+            if len(point_data) > 10:  
                 point_data = np.array(point_data)
                 median_features = np.median(point_data, axis=0)
                 distances = np.sum((point_data - median_features)**2, axis=1)
@@ -296,14 +277,13 @@ class EyeTrackerCursor:
                 avg_features = np.mean(filtered_data, axis=0)
                 self.calibration_data.append((avg_features, (x, y)))
                 
-                # Update with success message
                 calib_window = np.ones((300, 400, 3), dtype=np.uint8) * 255
                 cv2.putText(calib_window, f"Point {point_idx+1} complete!", 
                            (20, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
                 cv2.putText(calib_window, f"Collected {len(filtered_data)} valid samples", 
                            (20, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 1)
                 cv2.imshow("Calibration", calib_window)
-                cv2.waitKey(300)  # Show success message briefly
+                cv2.waitKey(300) 
             else:
                 print(f"Failed to collect enough data for point {point_idx + 1}")
                 
@@ -314,27 +294,24 @@ class EyeTrackerCursor:
                 cv2.putText(calib_window, "Not enough valid data collected", 
                            (20, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 1)
                 cv2.imshow("Calibration", calib_window)
-                cv2.waitKey(1000)  # Show failure message longer
+                cv2.waitKey(1000)  
         
         cv2.destroyWindow("Calibration")
         
         # Train the models with collected data
-        if len(self.calibration_data) >= 6:  # Need minimum points for good calibration
+        if len(self.calibration_data) >= 6: 
             X = np.array([data[0] for data in self.calibration_data])
             y_x = np.array([data[1][0] for data in self.calibration_data])
             y_y = np.array([data[1][1] for data in self.calibration_data])
             
-            # Scale features for better model performance
             X_scaled = self.scaler.fit_transform(X)
             
-            # Train models with more trees and max depth for better accuracy
             self.model_x = GradientBoostingRegressor(n_estimators=400, max_depth=18)
             self.model_y = GradientBoostingRegressor(n_estimators=400, max_depth=18)
             
             self.model_x.fit(X_scaled, y_x)
             self.model_y.fit(X_scaled, y_y)
             
-            # Calculate and display calibration error
             x_pred = self.model_x.predict(X_scaled)
             y_pred = self.model_y.predict(X_scaled)
             
@@ -358,7 +335,6 @@ class EyeTrackerCursor:
     
 
     def save_models(self, filename_prefix=None):
-        """Save the trained models with Mac-compatible paths"""
         if filename_prefix is None:
             filename_prefix = os.path.join(self.data_dir, "eye_tracker_model")
         
@@ -374,7 +350,6 @@ class EyeTrackerCursor:
             return False
     
     def load_models(self, filename_prefix=None):
-        """Load saved models with Mac-compatible paths"""
         if filename_prefix is None:
             filename_prefix = os.path.join(self.data_dir, "eye_tracker_model")
         
@@ -397,257 +372,34 @@ class EyeTrackerCursor:
             return False
     
     def switch_mode(self):
-        """Switch between different control modes with Mac optimizations"""
         modes = ["cursor", "scroll", "click", "drag"]
         current_idx = modes.index(self.mode)
         next_idx = (current_idx + 1) % len(modes)
         self.mode = modes[next_idx]
         
-        # Mac-specific adjustments for each mode
         if self.mode == "cursor":
-            self.cursor_speed = 0.05  # Smooth movement
+            self.cursor_speed = 0.05  
         elif self.mode == "scroll":
-            self.cursor_speed = 0.02  # Precise scrolling
+            self.cursor_speed = 0.02  
         elif self.mode == "click":
-            self.cursor_speed = 0.04  # Balanced for clicking
+            self.cursor_speed = 0.04  
         elif self.mode == "drag":
-            self.cursor_speed = 0.03  # Slow for precise dragging
+            self.cursor_speed = 0.03  
             
         print(f"Mode switched to: {self.mode}")
         return self.mode
     
-    """
-    def calibrate_blink_threshold(self):
-        if not self.start_camera():
-            print("Failed to open camera")
-            return False
-            
-        print("Calibrating blink detection. Please look at the screen normally for 5 seconds...")
-        
-        # Create feedback window
-        calib_window = np.ones((300, 500, 3), dtype=np.uint8) * 255
-        cv2.putText(calib_window, "Blink Calibration", (150, 30), 
-                cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 2)
-        cv2.putText(calib_window, "Keep eyes open and look normally", 
-                (50, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 1)
-        cv2.imshow("Calibration", calib_window)
-        cv2.waitKey(1)
-        
-        # Collect baseline EAR values
-        baseline_ears = []
-        blink_ears = []
-        
-        # Collect normal EAR values for 5 seconds
-        start_time = time.time()
-        while time.time() - start_time < 5:
-            ret, frame = self.cap.read()
-            if not ret:
-                continue
-                
-            # Process frame
-            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            results = self.face_mesh.process(frame_rgb)
-            
-            if results.multi_face_landmarks:
-                landmarks = results.multi_face_landmarks[0].landmark
-                features = self.extract_eye_features(landmarks)
-                
-                # Get ear values from features based on their position in the array
-                left_ear = features[-6]  # Adjust index if needed after changing extract_eye_features
-                right_ear = features[-5]  # Adjust index if needed after changing extract_eye_features
-                avg_ear = (left_ear + right_ear) / 2
-                baseline_ears.append(avg_ear)
-                
-                # Show progress bar
-                progress = min((time.time() - start_time) / 5.0, 1.0) * 100
-                calib_window = np.ones((300, 500, 3), dtype=np.uint8) * 255
-                cv2.putText(calib_window, "Blink Calibration", (150, 30), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 2)
-                cv2.putText(calib_window, "Keep eyes open and look normally", 
-                        (50, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 1)
-                cv2.putText(calib_window, f"Current EAR: {avg_ear:.4f}", 
-                        (50, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 200), 1)
-                cv2.rectangle(calib_window, (50, 150), (450, 180), (0, 0, 0), 2)
-                cv2.rectangle(calib_window, (50, 150), (50 + int(400 * progress/100), 180), (0, 255, 0), -1)
-                cv2.imshow("Calibration", calib_window)
-                cv2.waitKey(1)
-        
-        # Ask user to blink
-        calib_window = np.ones((300, 500, 3), dtype=np.uint8) * 255
-        cv2.putText(calib_window, "Blink Calibration", (150, 30), 
-                cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 2)
-        cv2.putText(calib_window, "Please blink normally 5 times", 
-                (50, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 1)
-        cv2.putText(calib_window, "Press SPACE when ready", 
-                (50, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 1)
-        cv2.imshow("Calibration", calib_window)
-        
-        # Wait for user to be ready
-        while True:
-            if cv2.waitKey(1) & 0xFF == 32:  # SPACE key
-                break
-        
-        # Collect blink EAR values
-        blink_count = 0
-        min_ear_values = []
-        ear_window = []
-        in_blink = False
-        last_blink_time = time.time()
-        
-        calib_window = np.ones((300, 500, 3), dtype=np.uint8) * 255
-        cv2.putText(calib_window, "Blink Calibration", (150, 30), 
-                cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 2)
-        cv2.putText(calib_window, f"Blink count: {blink_count}/5", 
-                (50, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 1)
-        cv2.imshow("Calibration", calib_window)
-        
-        # Continue until we have 5 blinks
-        while blink_count < 5:
-            ret, frame = self.cap.read()
-            if not ret:
-                continue
-                
-            # Process frame
-            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            results = self.face_mesh.process(frame_rgb)
-            
-            if results.multi_face_landmarks:
-                landmarks = results.multi_face_landmarks[0].landmark
-                features = self.extract_eye_features(landmarks)
-                
-                # Get ear values from features
-                left_ear = features[-6]  # Adjust index if needed
-                right_ear = features[-5]  # Adjust index if needed
-                avg_ear = (left_ear + right_ear) / 2
-                
-                # Add to rolling window for blink detection
-                ear_window.append(avg_ear)
-                if len(ear_window) > 5:
-                    ear_window.pop(0)
-                    
-                # Update display
-                calib_window = np.ones((300, 500, 3), dtype=np.uint8) * 255
-                cv2.putText(calib_window, "Blink Calibration", (150, 30), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 2)
-                cv2.putText(calib_window, f"Blink count: {blink_count}/5", 
-                        (50, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 1)
-                cv2.putText(calib_window, f"Current EAR: {avg_ear:.4f}", 
-                        (50, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 200), 1)
-                cv2.imshow("Calibration", calib_window)
-                
-                # Detect blink - find local minimum in EAR
-                if not in_blink and len(ear_window) >= 3:
-                    # If there's a significant drop in EAR
-                    if avg_ear < min(ear_window[:-1]) * 0.9:
-                        in_blink = True
-                        blink_start_time = time.time()
-                
-                # If in blink state, find minimum EAR value
-                if in_blink:
-                    # Store minimum EAR during blink
-                    if avg_ear < min(ear_window):
-                        min_ear = avg_ear
-                    
-                    # If EAR increases again or timeout, end of blink
-                    if (avg_ear > min(ear_window) * 1.1) or (time.time() - blink_start_time > 1.0):
-                        if time.time() - last_blink_time > 0.5:  # Avoid double counting
-                            blink_count += 1
-                            min_ear_values.append(min(ear_window))
-                            last_blink_time = time.time()
-                            
-                            # Update display
-                            calib_window = np.ones((300, 500, 3), dtype=np.uint8) * 255
-                            cv2.putText(calib_window, "Blink Calibration", (150, 30), 
-                                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 2)
-                            cv2.putText(calib_window, f"Blink count: {blink_count}/5", 
-                                    (50, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 1)
-                            cv2.putText(calib_window, f"Blink detected! EAR: {min(ear_window):.4f}", 
-                                    (50, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 1)
-                            cv2.imshow("Calibration", calib_window)
-                            cv2.waitKey(1)
-                            time.sleep(0.5)  # Pause briefly to show detection
-                        
-                        in_blink = False
-                
-                cv2.waitKey(1)
-        
-        # Calculate personalized threshold
-        if len(baseline_ears) > 10 and len(min_ear_values) > 3:
-            # Filter out outliers from baseline
-            baseline_ears.sort()
-            filtered_baseline = baseline_ears[int(len(baseline_ears)*0.1):int(len(baseline_ears)*0.9)]
-            avg_baseline = np.mean(filtered_baseline)
-            
-            # Get average of minimum blink EAR values
-            avg_blink_min = np.mean(min_ear_values)
-            
-            # Set threshold halfway between baseline and min blink value
-            self.blink_threshold = (avg_baseline + avg_blink_min) / 2
-            
-            # Check if values are very close (as in your case)
-            if abs(avg_baseline - avg_blink_min) < 0.01:
-                # Switch to relative mode
-                self.blink_relative_mode = True
-                self.blink_baseline = avg_baseline
-                # Calculate relative threshold based on observed reduction
-                reduction_ratio = avg_blink_min / avg_baseline
-                self.blink_relative_threshold = (1 - reduction_ratio) * 0.8  # 80% of the observed reduction
-                
-                print(f"Normal EAR: {avg_baseline:.4f}, Blink EAR: {avg_blink_min:.4f}")
-                print(f"Using relative blink detection with {self.blink_relative_threshold:.2f} threshold")
-                
-                calib_window = np.ones((300, 500, 3), dtype=np.uint8) * 255
-                cv2.putText(calib_window, "Calibration Complete", (120, 30), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 2)
-                cv2.putText(calib_window, f"Using relative blink detection", 
-                        (50, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 1)
-                cv2.putText(calib_window, f"Normal EAR: {avg_baseline:.4f}", 
-                        (50, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 1)
-                cv2.putText(calib_window, f"Blink EAR: {avg_blink_min:.4f}", 
-                        (50, 130), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 1)
-                cv2.putText(calib_window, f"Reduction threshold: {self.blink_relative_threshold:.2f}", 
-                        (50, 160), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 1)
-                cv2.putText(calib_window, "Press any key to continue", 
-                        (50, 200), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 1)
-            else:
-                # Standard threshold mode
-                print(f"Personalized blink threshold set to: {self.blink_threshold:.4f}")
-                print(f"Normal EAR: {avg_baseline:.4f}, Blink EAR: {avg_blink_min:.4f}")
-                
-                calib_window = np.ones((300, 500, 3), dtype=np.uint8) * 255
-                cv2.putText(calib_window, "Calibration Complete", (120, 30), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 2)
-                cv2.putText(calib_window, f"Blink threshold: {self.blink_threshold:.4f}", 
-                        (50, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 1)
-                cv2.putText(calib_window, f"Normal EAR: {avg_baseline:.4f}", 
-                        (50, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 1)
-                cv2.putText(calib_window, f"Blink EAR: {avg_blink_min:.4f}", 
-                        (50, 130), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 1)
-                cv2.putText(calib_window, "Press any key to continue", 
-                        (50, 160), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 1)
-            
-            cv2.imshow("Calibration", calib_window)
-            cv2.waitKey(0)
-            cv2.destroyWindow("Calibration")
-            return True
-        else:
-            print("Blink calibration failed - not enough data")
-            return False
-    """
-
 
     def save_blink_calibration(self):
-        """Save blink calibration parameters to disk"""
         try:
             # Create a dictionary with all calibration parameters
             calibration_data = {
-                "blink_threshold": getattr(self, "blink_threshold", 0.2),  # Default if not set
+                "blink_threshold": getattr(self, "blink_threshold", 0.2),  
                 "blink_relative_mode": getattr(self, "blink_relative_mode", False),
                 "blink_baseline": getattr(self, "blink_baseline", 0.3),
                 "blink_relative_threshold": getattr(self, "blink_relative_threshold", 0.2)
             }
             
-            # Save calibration data to a file
             calibration_file = os.path.join(self.data_dir, "blink_calibration.pkl")
             joblib.dump(calibration_data, calibration_file)
             print(f"Blink calibration saved to {calibration_file}")
@@ -657,14 +409,12 @@ class EyeTrackerCursor:
             return False
 
     def calibrate_blink_threshold(self):
-        """Calibrate the blink threshold based on user manually indicating blinks"""
         if not self.start_camera():
             print("Failed to open camera")
             return False
             
         print("Manual blink calibration. You will indicate when you blink.")
         
-        # Create feedback window
         calib_window = np.ones((300, 500, 3), dtype=np.uint8) * 255
         cv2.putText(calib_window, "Manual Blink Calibration", (120, 30), 
                 cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 2)
@@ -676,9 +426,8 @@ class EyeTrackerCursor:
                 (50, 130), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 1)
         cv2.imshow("Calibration", calib_window)
         
-        # Wait for user to be ready for baseline recording
         while True:
-            if cv2.waitKey(1) & 0xFF == 32:  # SPACE key
+            if cv2.waitKey(1) & 0xFF == 32:  
                 break
         
         # Collect baseline EAR values (eyes open)
@@ -691,7 +440,6 @@ class EyeTrackerCursor:
             if not ret:
                 continue
                 
-            # Process frame
             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             results = self.face_mesh.process(frame_rgb)
             
@@ -700,12 +448,11 @@ class EyeTrackerCursor:
                 features = self.extract_eye_features(landmarks)
                 
                 # Get ear values from features based on their position in the array
-                left_ear = features[-6]  # Adjust index if needed
-                right_ear = features[-5]  # Adjust index if needed
+                left_ear = features[-6] 
+                right_ear = features[-5]
                 avg_ear = (left_ear + right_ear) / 2
                 baseline_ears.append(avg_ear)
                 
-                # Show progress bar
                 progress = min((time.time() - start_time) / 5.0, 1.0) * 100
                 calib_window = np.ones((300, 500, 3), dtype=np.uint8) * 255
                 cv2.putText(calib_window, "Recording Baseline", (150, 30), 
@@ -719,7 +466,6 @@ class EyeTrackerCursor:
                 cv2.imshow("Calibration", calib_window)
                 cv2.waitKey(1)
         
-        # Prepare for blink recording
         calib_window = np.ones((300, 500, 3), dtype=np.uint8) * 255
         cv2.putText(calib_window, "Blink Recording", (150, 30), 
                 cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 2)
@@ -742,7 +488,6 @@ class EyeTrackerCursor:
             if not ret:
                 continue
                 
-            # Process frame
             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             results = self.face_mesh.process(frame_rgb)
             
@@ -751,8 +496,8 @@ class EyeTrackerCursor:
                 features = self.extract_eye_features(landmarks)
                 
                 # Get ear values
-                left_ear = features[-6]  # Adjust index if needed
-                right_ear = features[-5]  # Adjust index if needed
+                left_ear = features[-6] 
+                right_ear = features[-5]
                 avg_ear = (left_ear + right_ear) / 2
                 
                 # Update display
@@ -766,19 +511,16 @@ class EyeTrackerCursor:
                 
                 # Check if SPACE is pressed (user is blinking)
                 key = cv2.waitKey(1) & 0xFF
-                if key == 32:  # SPACE key pressed (user indicates they're blinking)
+                if key == 32: 
                     cv2.putText(calib_window, "BLINKING DETECTED!", 
                             (50, 150), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
                     current_blink_ears.append(avg_ear)
-                elif len(current_blink_ears) > 0:  # SPACE released after blink
-                    # A blink sequence has ended
+                elif len(current_blink_ears) > 0: 
                     blink_count += 1
-                    # Store the minimum EAR value during this blink
                     min_blink_ear = min(current_blink_ears)
                     blink_ear_values.append(min_blink_ear)
-                    current_blink_ears = []  # Reset for next blink
+                    current_blink_ears = []  
                     
-                    # Show confirmation
                     calib_window = np.ones((300, 500, 3), dtype=np.uint8) * 255
                     cv2.putText(calib_window, "Blink Recorded!", (150, 30), 
                             cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 2)
@@ -787,10 +529,9 @@ class EyeTrackerCursor:
                     cv2.putText(calib_window, f"Blink EAR: {min_blink_ear:.4f}", 
                             (50, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 1)
                     cv2.imshow("Calibration", calib_window)
-                    cv2.waitKey(500)  # Brief pause to show confirmation
+                    cv2.waitKey(500) 
                     
-                # Exit if ESC pressed
-                if key == 27:  # ESC key
+                if key == 27:  
                     cv2.destroyWindow("Calibration")
                     return False
                     
@@ -798,7 +539,6 @@ class EyeTrackerCursor:
         
         # Calculate personalized threshold
         if len(baseline_ears) > 10 and len(blink_ear_values) >= 3:
-            # Filter out outliers from baseline
             baseline_ears.sort()
             filtered_baseline = baseline_ears[int(len(baseline_ears)*0.1):int(len(baseline_ears)*0.9)]
             avg_baseline = np.mean(filtered_baseline)
@@ -811,10 +551,8 @@ class EyeTrackerCursor:
             
             # Check if values are very close
             if abs(avg_baseline - avg_blink_min) < 0.05:
-                # Switch to relative mode
                 self.blink_relative_mode = True
                 self.blink_baseline = avg_baseline
-                # Calculate relative threshold based on observed reduction
                 reduction_ratio = avg_blink_min / avg_baseline
                 self.blink_relative_threshold = (1 - reduction_ratio) * 0.8  # 80% of the observed reduction
                 
@@ -864,13 +602,11 @@ class EyeTrackerCursor:
 
 
     def handle_blink(self, left_ear, right_ear):
-        """Handle blink detection and actions with improved timing for Mac"""
         current_time = time.time()
         avg_ear = (left_ear + right_ear) / 2
         print(f"Current EAR: {avg_ear:.2f}, Threshold: {self.blink_threshold}")
         
-        # Determine if blink based on threshold method
-        # For users with very low EAR values like 0.01-0.02
+
         if hasattr(self, 'blink_relative_mode') and self.blink_relative_mode:
             # Get baseline from recent history (last 30 frames, excluding potential blinks)
             if not hasattr(self, 'ear_history'):
@@ -887,41 +623,36 @@ class EyeTrackerCursor:
             else:
                 is_blink = False
         else:
-            # Traditional fixed threshold approach
             is_blink = avg_ear < self.blink_threshold
         
-        # Start tracking blink if detected
+
         if is_blink and self.blink_start_time is None:
             self.blink_start_time = current_time
-            return None  # No action yet
+            return None 
         
-        # If we were in a blink and eyes are now open
         elif not is_blink and self.blink_start_time is not None:
             blink_duration = current_time - self.blink_start_time
             self.blink_start_time = None
             
-            # Only process if cooldown has passed
             if current_time - self.last_blink_time > self.blink_cooldown:
                 self.last_blink_time = current_time
                 
                 # Different actions based on blink duration
-                if blink_duration < 0.3:  # Short blink
+                if blink_duration < 0.3:  
                     if self.mode == "cursor" or self.mode == "click":
                         # Left click
                         pyautogui.click()
                         print("Click!")
                         return "click"
                     elif self.mode == "drag":
-                        # Toggle drag state
                         pyautogui.mouseDown() if not hasattr(self, 'dragging') or not self.dragging else pyautogui.mouseUp()
                         self.dragging = not getattr(self, 'dragging', False)
                         return "drag_toggle"
-                elif 0.3 <= blink_duration < self.long_blink_threshold:  # Medium blink
+                elif 0.3 <= blink_duration < self.long_blink_threshold:  
                     if self.mode == "cursor" or self.mode == "click":
-                        # Right click for Mac
                         pyautogui.rightClick()
                         return "right_click"
-                else:  # Long blink
+                else:  
                     # Switch mode on long blink
                     new_mode = self.switch_mode()
                     return f"mode_switch_{new_mode}"
@@ -929,11 +660,9 @@ class EyeTrackerCursor:
         return None
     
     def handle_scroll(self, y_position):
-        """Handle scroll behavior with improved sensitivity for Mac"""
         if self.mode == "scroll":
-            center_region = 0.3  # Dead zone in the middle (10% of screen)
-            scroll_speed_factor = 0.5  # Mac-specific scroll speed adjustment
-            
+            center_region = 0.3 
+            scroll_speed_factor = 0.5  
             # Calculate normalized position (0 to 1) with center region removed
             normalized_y = y_position / self.screen_height
             
@@ -953,7 +682,6 @@ class EyeTrackerCursor:
         return 0
     
     def smooth_movement(self, x_pred, y_pred):
-        """Position-aware adaptive smoothing"""
         # Initialize previous position if first movement
         if self.prev_x is None:
             self.prev_x, self.prev_y = x_pred, y_pred
@@ -976,7 +704,6 @@ class EyeTrackerCursor:
         
         return smooth_x, smooth_y
     def run(self):
-        """Run the eye tracker with Mac optimizations"""
         if not self.cap or not self.cap.isOpened():
             if not self.start_camera():
                 print("Failed to open camera")
@@ -989,7 +716,6 @@ class EyeTrackerCursor:
         print(f"Eye tracker running on {'macOS' if self.is_mac else 'other OS'}.")
         print("Controls: Press 'q' to quit, 'm' to switch modes, 'c' to recalibrate, 'f' for full calibration")
         
-        # Mac-specific settings
         if self.is_mac:
             pyautogui.FAILSAFE = False  # Disable corner failsafe for Mac
             
@@ -1003,7 +729,7 @@ class EyeTrackerCursor:
             ret, frame = self.cap.read()
             if not ret:
                 print("Failed to capture frame")
-                time.sleep(0.1)  # Small delay before retry
+                time.sleep(0.1)  
                 continue
             
             # Convert to RGB for MediaPipe
@@ -1018,8 +744,7 @@ class EyeTrackerCursor:
                 landmarks = results.multi_face_landmarks[0].landmark
                 features = self.extract_eye_features(landmarks)
                 
-                # Extract the ear values from the features
-                left_ear = features[-6]  # Position depends on features we extract
+                left_ear = features[-6]  
                 right_ear = features[-5]
                 cv2.putText(frame, f"EAR: {(left_ear + right_ear)/2:.2f}", (10, 60), 
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
@@ -1034,7 +759,6 @@ class EyeTrackerCursor:
                 # Apply smoothing for better experience
                 x_smooth, y_smooth = self.smooth_movement(x_pred, y_pred)
                 
-                # Apply bounds
                 x_smooth = max(0, min(x_smooth, self.screen_width-1))
                 y_smooth = max(0, min(y_smooth, self.screen_height-1))
                 
@@ -1063,7 +787,7 @@ class EyeTrackerCursor:
             if len(frame_times) > 30:
                 frame_times.pop(0)
             
-            if time.time() - last_fps_update > 1.0:  # Update FPS display once per second
+            if time.time() - last_fps_update > 1.0:  
                 fps = 1.0 / (sum(frame_times) / len(frame_times))
                 last_fps_update = time.time()          
                 cv2.putText(frame, f"FPS: {fps:.1f}", (frame.shape[1] - 120, 30), 
@@ -1079,17 +803,15 @@ class EyeTrackerCursor:
             elif key == ord('m'):
                 self.switch_mode()
             elif key == ord('c'):
-                # Quick recalibration
                 cv2.destroyAllWindows()
-                self.calibrate(9)  # Use fewer points for quick recalibration
-            # Inside the run() method where key presses are handled
-            elif key == ord('f'):  # 'f' for full calibration
+                self.calibrate(9) 
+            elif key == ord('f'): 
                 print("Starting full calibration from scratch...")
                 cv2.destroyAllWindows()
-                self.calibration_data = []  # Clear any existing calibration data
-                self.calibration_points = []  # Clear existing points
-                if self.calibrate(16):  # Use all 16 points for a complete calibration
-                    self.save_models()  # Save the new calibration
+                self.calibration_data = []  
+                self.calibration_points = []  
+                if self.calibrate(16):  
+                    self.save_models()  
                     print("Full calibration complete. Press any key to continue.")
                     cv2.waitKey(0)
                 
@@ -1098,7 +820,7 @@ class EyeTrackerCursor:
             self.cap.release()
         cv2.destroyAllWindows()
         
-        # If we were in drag mode, ensure mouse is released
+
         if hasattr(self, 'dragging') and self.dragging:
             pyautogui.mouseUp()
             
@@ -1127,7 +849,6 @@ if __name__ == "__main__":
     if choice == ord('c'):
         print("Starting calibration...")
         if tracker.calibrate():
-            # Save model after calibration
             tracker.calibrate_blink_threshold()
             tracker.save_models()
             tracker.run()
@@ -1138,7 +859,6 @@ if __name__ == "__main__":
             tracker.run()
         else:
             print("Failed to load models. Please calibrate first.")
-            # Offer to calibrate if loading fails
             retry = input("Would you like to calibrate now? (y/n): ")
             if retry.lower() == 'y':
                 if tracker.calibrate():

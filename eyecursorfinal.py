@@ -12,23 +12,18 @@ import joblib
 import os
 import platform
 
-# TODO:  Make eyetracking wpork better up downa n around edges 
-
 class EyeTrackerCursor:
     def __init__(self):
         # Check if we're on macOS
         self.is_mac = platform.system() == 'Darwin'
-        
-        # Initialize MediaPipe with higher precision settings for macOS
         self.mp_face_mesh = mp.solutions.face_mesh
         self.face_mesh = self.mp_face_mesh.FaceMesh(
             max_num_faces=1,
             refine_landmarks=True,
-            min_detection_confidence=0.6,  # Increased for Mac cameras
-            min_tracking_confidence=0.6    # Increased for Mac cameras
+            min_detection_confidence=0.6, 
+            min_tracking_confidence=0.6   
         )
         
-        # More comprehensive eye landmarks for better tracking
         # MediaPipe Face Mesh landmarks for eyes
         self.LEFT_EYE = [362, 382, 381, 380, 374, 373, 390, 249, 263, 466, 388, 387, 386, 385, 384, 398]
         self.RIGHT_EYE = [33, 7, 163, 144, 145, 153, 154, 155, 133, 173, 157, 158, 159, 160, 161, 246]
@@ -42,7 +37,6 @@ class EyeTrackerCursor:
         
         # For Mac Retina displays, adjust the scaling factor
         if self.is_mac:
-            # Check for Retina display
             try:
                 import AppKit
                 main_screen = AppKit.NSScreen.mainScreen()
@@ -56,7 +50,6 @@ class EyeTrackerCursor:
         self.calibration_data = []
         self.calibration_points = []
         
-        # Initialize models and scaler for better prediction
         self.model_x = None
         self.model_y = None
         self.scaler = StandardScaler()

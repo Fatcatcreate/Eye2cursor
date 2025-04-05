@@ -3,9 +3,6 @@ import numpy as np
 import time
 import pyautogui
 import mediapipe as mp
-import pandas as pd
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestRegressor
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import GradientBoostingRegressor
 import joblib
@@ -73,7 +70,7 @@ class EyeTrackerCursor:
         self.frame_width = 1280  # Higher resolution for Mac cameras
         self.frame_height = 720
         
-        self.data_dir = os.path.expanduser("~/myvscode/my/Buildownx/Eye/english")
+        self.data_dir = os.path.expanduser("~/PATHTOCALIBRATIONDATA")
         os.makedirs(self.data_dir, exist_ok=True)
         
         
@@ -802,6 +799,8 @@ class EyeTrackerCursor:
                 break
             elif key == ord('m'):
                 self.switch_mode()
+            elif key == ord('s'):
+                self.mode = "scroll"
             elif key == ord('c'):
                 cv2.destroyAllWindows()
                 self.calibrate(9) 

@@ -26,12 +26,20 @@ I wanted to see, just out of curiosity, having seen eye trackers over the intern
 
 ---
 
-## Blink Detection and Calibration
+## Eye and Blink Calibration
+
+## Manual Calibration
+This system includes a **manual calibration routine** to personalize blink detection using **Eye Aspect Ratio (EAR)** and the eyetracking itself. This is crucial because people's eye shapes and blinking patterns vary.
+
+The Manual Calibration is triggered when you click **'c'** on the start menu
+
+You will need to follow your cursor for 100 points, for each focusing for 3 seconds on where your cursor was moved to.
+This creates a matrix of calibrated points to train off of.
+You will not need to click on anything just look at the cursor and follow it
 
 ### Manual Blink Calibration
-This system includes a **manual calibration routine** to personalize blink detection using **Eye Aspect Ratio (EAR)**. This is crucial because people's eye shapes and blinking patterns vary.
 
-The calibration is split into two steps:
+The blink calibration is split into two steps:
 
 1. **Baseline EAR Recording** (Eyes Open)
    - You keep your eyes open and look normally.
@@ -152,9 +160,6 @@ EyeMouse/
 ## Acknowledgements
 
 - MediaPipe Face Mesh by Google
-- Blink detection using EAR inspired by Tereza Soukupová & Jan Čech’s paper
 - pyautogui for mouse control
 - OpenCV for video processing
-- scikit-learn for optional smoothing and filtering logic
-- matplotlib for debugging visualization and EAR plots
-
+- scikit-learn 

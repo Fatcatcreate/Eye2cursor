@@ -6,7 +6,7 @@ An AI-powered eye-tracking system for controlling the mouse on macOS using **Med
 
 ## Introduction
 
-I wanted to see just out of curisioty having seen eyetrackers over the internet whther they could be used in a more accessible and useful function as to let people use their eyes to control the cursor. With the added restriction of running it entirely off of the Mac webcam, it became a harder challenge than I had assumed. Yet by using feautures that others had created and alot of debugging I was finally able to make something reasonably competent.
+I wanted to see, just out of curiosity, having seen eye trackers over the internet, whether they could be used in a more accessible and useful function, such as letting people use their eyes to control the cursor. With the added restriction of running it entirely off of the Mac webcam, it became a harder challenge than I had assumed. Yet, by using features that others had created and a lot of debugging, I was finally able to make something reasonably competent.
 
 ---
 

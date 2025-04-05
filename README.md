@@ -4,6 +4,12 @@ An AI-powered eye-tracking system for controlling the mouse on macOS using **Med
 
 ---
 
+## Introduction
+
+I wanted to see just out of curisioty having seen eyetrackers over the internet whther they could be used in a more accessible and useful function as to let people use their eyes to control the cursor. With the added restriction of running it entirely off of the Mac webcam, it became a harder challenge than I had assumed. Yet by using feautures that others had created and alot of debugging I was finally able to make something reasonably competent.
+
+---
+
 ## Features
 
 - Real-time eye tracking with **MediaPipe Face Mesh**
@@ -88,35 +94,39 @@ To ensure precision and avoid jitter:
 
 ---
 
-## Requirements
+## Installation
 
-- Python 3.8+
-- macOS (tested on macOS Ventura)
+1. Clone this repository and navigate to the folder:
+```bash
+git clone https://github.com/Fatcatcreate/Eyecursor.git
+cd EyeMouse
+```
 
-### Install Dependencies
-Install all dependencies based on the `import` statements in the code:
-- mediapipe
-- opencv-python
-- pyautogui
-- numpy
-- scikit-learn
-- matplotlib
+2. (Optional) Create a virtual environment:
+```bash
+python3 -m venv venv
+source venv/bin/activate  # On Windows use `venv\Scripts\activate`
+```
 
-Install them manually using pip:
+3. Manually install dependencies:
 ```bash
 pip install mediapipe opencv-python pyautogui numpy scikit-learn matplotlib
 ```
+
+Make sure your Python version is 3.8 or later.
 
 ---
 
 ## How to Run
 
+Edit `eyetrackerfinal.py` to include your path to the calibration data folder:
+```python
+self.data_dir = os.path.expanduser("~/PATHTOCALIBRATIONDATA")
+```
+Then run the script:
 ```bash
-git clone 
 python eyetrackerfinal.py
 ```
-
-Edit the script to include your path to the calibration data folder (PATHTOCALIBRATIONDATA/).
 
 ---
 
@@ -145,6 +155,6 @@ EyeMouse/
 - Blink detection using EAR inspired by Tereza Soukupová & Jan Čech’s paper
 - pyautogui for mouse control
 - OpenCV for video processing
-- scikit-learn for optional smoothing and filtering logic (if used)
-- matplotlib for visual debugging during development (optional)
+- scikit-learn for optional smoothing and filtering logic
+- matplotlib for debugging visualization and EAR plots
 
